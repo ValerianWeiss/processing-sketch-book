@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "processing_sketch_book",
+  "project_id": "9060ad43-e547-4631-a56d-d10dec229bf3"
+}
