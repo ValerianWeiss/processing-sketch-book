@@ -1,138 +1,186 @@
-final int LINE_COUNT = 3;
-final float LINE_LENGTH = 2000.0;
-final float MIN_SPEED = 0.005;
-final float MAX_SPEED = 0.02;
+/**
+ * DrawingMachine - A CNC-like drawing machine visualization
+ *
+ * This sketch simulates a trammel drive mechanism with 3 rotating motors
+ * and planks that generate mandala-like patterns at their intersection point.
+ *
+ * Controls:
+ * - 'c' or 'C': Clear canvas
+ * - 's' or 'S': Save current frame
+ */
 
-RotatingLine[] rotatingLines = new RotatingLine[LINE_COUNT];
-PVector previousPoint;
+// Motor positions (arranged in a triangle)
+PVector[] motorPositions;
+
+// Current angles for each motor (plank rotation)
+float[] angles;
+
+// Angular speeds for each motor (different speeds create interesting patterns)
+float[] speeds;
+
+// Motor orbit angles (position around center)
+float[] orbitAngles;
+
+// Angular speeds for orbit rotation
+float[] orbitSpeeds;
+
+// Plank length (distance from motor to intersection point)
+float plankLength;
+
+// Previous intersection point for drawing trails
+PVector prevPoint;
+
+// Trail history for visualization
+ArrayList<PVector> trail;
+
+// Maximum trail length
+int maxTrailLength = 2000;
+
+// Motor sizes (different diameters for each motor)
+float[] motorSizes;
+
+// Plank width
+float plankWidth = 15;
+
+// Orbit radius (distance from center)
+float orbitRadius = 250;
+
+void settings() {
+  size(800, 800);
+}
 
 void setup() {
-  size(720, 720);
-  background(0);
-  stroke(255, 220, 120, 140);
-  strokeWeight(1.5);
-  smooth(8);
+  frameRate(60);
+  background(10);
 
-  float centerX = width * 0.5;
-  float centerY = height * 0.5;
-  float orbitRadius = min(width, height) * 0.2;
+  // Initialize motor positions array
+  motorPositions = new PVector[3];
 
-  for (int i = 0; i < LINE_COUNT; i++) {
-    float startAngle = random(TWO_PI);
-    float speed = randomSignedSpeed();
-    float directionOffset = random(TWO_PI);
-    float directionMultiplier = random(1.1, 2.2);
-    rotatingLines[i] = new RotatingLine(centerX, centerY, orbitRadius, startAngle, speed, directionOffset, directionMultiplier);
+  // Initialize angles and random speeds for each motor (plank rotation)
+  angles = new float[3];
+  speeds = new float[3];
+
+  // Initialize orbit angles and speeds (motor position around center)
+  orbitAngles = new float[3];
+  orbitSpeeds = new float[3];
+
+  for (int i = 0; i < 3; i++) {
+    // Plank rotation
+    speeds[i] = random(-0.05, 0.05);
+    angles[i] = random(TWO_PI);
+
+    // Orbit rotation (slower)
+    orbitSpeeds[i] = random(-0.005, 0.005);
+    orbitAngles[i] = TWO_PI * i / 3 - PI / 2; // Start in triangle formation
   }
+
+  // Initialize motor sizes (different diameters)
+  motorSizes = new float[3];
+  motorSizes[0] = 12;
+  motorSizes[1] = 18;
+  motorSizes[2] = 15;
+
+  // Plank length (distance from motor to approximate center)
+  plankLength = 300;
+
+  // Initialize previous point and trail
+  prevPoint = null;
+  trail = new ArrayList<PVector>();
+
+  // Set color mode
+  colorMode(HSB, 360, 100, 100, 100);
 }
 
 void draw() {
-  for (int i = 0; i < LINE_COUNT; i++) {
-    rotatingLines[i].advance();
+  // Update motor positions (orbit around center)
+  updateMotorPositions();
+
+  // Draw motor center points with different sizes
+  fill(255);
+  noStroke();
+  for (int i = 0; i < 3; i++) {
+    ellipse(motorPositions[i].x, motorPositions[i].y, motorSizes[i], motorSizes[i]);
   }
 
-  PVector[] intersections = new PVector[3];
-  intersections[0] = lineIntersection(rotatingLines[0], rotatingLines[1]);
-  intersections[1] = lineIntersection(rotatingLines[0], rotatingLines[2]);
-  intersections[2] = lineIntersection(rotatingLines[1], rotatingLines[2]);
+  // Calculate current intersection point
+  PVector currentPoint = calculateIntersectionPoint();
 
-  PVector activePoint = averagePoint(intersections);
-  if (activePoint == null) {
-    return;
-  }
+  if (currentPoint != null) {
+    // Draw line from previous point to current point
+    if (prevPoint != null) {
+      // Color based on position and time
+      float hue = (frameCount * 0.5 + dist(0, 0, currentPoint.x - width/2, currentPoint.y - height/2)) % 360;
+      stroke(hue, 70, 90, 60);
+      strokeWeight(2);
+      line(prevPoint.x, prevPoint.y, currentPoint.x, currentPoint.y);
 
-  if (previousPoint != null) {
-    line(previousPoint.x, previousPoint.y, activePoint.x, activePoint.y);
-  }
-
-  previousPoint = activePoint.copy();
-}
-
-float randomSignedSpeed() {
-  float speed = random(MIN_SPEED, MAX_SPEED);
-  return random(1) > 0.5 ? speed : -speed;
-}
-
-PVector averagePoint(PVector[] points) {
-  PVector sum = new PVector();
-  int count = 0;
-
-  for (int i = 0; i < points.length; i++) {
-    if (points[i] == null) {
-      continue;
+      // Add to trail
+      trail.add(currentPoint.copy());
+      if (trail.size() > maxTrailLength) {
+        trail.remove(0);
+      }
     }
-
-    sum.add(points[i]);
-    count++;
+    prevPoint = currentPoint.copy();
   }
 
-  if (count == 0) {
-    return null;
-  }
+  // No visual elements drawn - only the intersection trail
 
-  return sum.div((float) count);
+  // Update plank angles
+  for (int i = 0; i < 3; i++) {
+    angles[i] += speeds[i];
+    orbitAngles[i] += orbitSpeeds[i];
+  }
 }
 
-PVector lineIntersection(RotatingLine a, RotatingLine b) {
-  PVector p1 = a.startPoint();
-  PVector p2 = a.endPoint();
-  PVector q1 = b.startPoint();
-  PVector q2 = b.endPoint();
-
-  float denominator = (p1.x - p2.x) * (q1.y - q2.y) - (p1.y - p2.y) * (q1.x - q2.x);
-  if (abs(denominator) < 0.0001) {
-    return null;
+/**
+ * Update motor positions based on orbit angles.
+ */
+void updateMotorPositions() {
+  PVector center = new PVector(width/2, height/2);
+  for (int i = 0; i < 3; i++) {
+    motorPositions[i] = new PVector(
+      center.x + cos(orbitAngles[i]) * orbitRadius,
+      center.y + sin(orbitAngles[i]) * orbitRadius
+    );
   }
-
-  float pCross = p1.x * p2.y - p1.y * p2.x;
-  float qCross = q1.x * q2.y - q1.y * q2.x;
-
-  float x = (pCross * (q1.x - q2.x) - (p1.x - p2.x) * qCross) / denominator;
-  float y = (pCross * (q1.y - q2.y) - (p1.y - p2.y) * qCross) / denominator;
-  return new PVector(x, y);
 }
 
-class RotatingLine {
-  PVector center;
-  float orbitRadius;
-  float orbitAngle;
-  float orbitSpeed;
-  float directionOffset;
-  float directionMultiplier;
+/**
+ * Calculate the intersection point of the three planks.
+ * Each plank rotates around its motor and points toward the center.
+ * The intersection is the centroid of the triangle formed by endpoints.
+ */
+PVector calculateIntersectionPoint() {
+  PVector[] endpoints = new PVector[3];
+  PVector center = new PVector(width/2, height/2);
 
-  RotatingLine(float centerX, float centerY, float orbitRadiusValue, float startAngle, float speed, float offset, float multiplier) {
-    center = new PVector(centerX, centerY);
-    orbitRadius = orbitRadiusValue;
-    orbitAngle = startAngle;
-    orbitSpeed = speed;
-    directionOffset = offset;
-    directionMultiplier = multiplier;
+  // Calculate endpoint of each plank
+  for (int i = 0; i < 3; i++) {
+    // Calculate angle from motor to center, then add rotation angle
+    float angleToCenter = atan2(center.y - motorPositions[i].y, center.x - motorPositions[i].x);
+    float plankAngle = angleToCenter + angles[i];
+
+    endpoints[i] = new PVector(
+      motorPositions[i].x + cos(plankAngle) * plankLength,
+      motorPositions[i].y + sin(plankAngle) * plankLength
+    );
   }
 
-  void advance() {
-    orbitAngle += orbitSpeed;
-  }
+  // Calculate centroid of the triangle formed by endpoints
+  float centerX = (endpoints[0].x + endpoints[1].x + endpoints[2].x) / 3;
+  float centerY = (endpoints[0].y + endpoints[1].y + endpoints[2].y) / 3;
 
-  PVector pivot() {
-    float x = center.x + cos(orbitAngle) * orbitRadius;
-    float y = center.y + sin(orbitAngle) * orbitRadius;
-    return new PVector(x, y);
-  }
+  return new PVector(centerX, centerY);
+}
 
-  PVector direction() {
-    float angle = orbitAngle * directionMultiplier + directionOffset;
-    return new PVector(cos(angle), sin(angle));
-  }
 
-  PVector startPoint() {
-    PVector pivotPoint = pivot();
-    PVector dir = direction();
-    return new PVector(pivotPoint.x - dir.x * LINE_LENGTH, pivotPoint.y - dir.y * LINE_LENGTH);
+void keyPressed() {
+  if (key == 'c' || key == 'C') {
+    background(10);
+    trail.clear();
+    prevPoint = null;
   }
-
-  PVector endPoint() {
-    PVector pivotPoint = pivot();
-    PVector dir = direction();
-    return new PVector(pivotPoint.x + dir.x * LINE_LENGTH, pivotPoint.y + dir.y * LINE_LENGTH);
+  if (key == 's' || key == 'S') {
+    saveFrame("drawing-machine-####.png");
   }
 }
