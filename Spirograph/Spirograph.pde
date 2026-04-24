@@ -1,24 +1,24 @@
-final float R = 220.0;          // Outer radius
-final float r = 63.0;           // Inner rolling radius
-final float d = 142.0;          // Pen offset
+float R;                        // Outer radius
+float r;                        // Inner rolling radius
+float d;                        // Pen offset
 final float tStep = 0.001;      // Resolution
-final float maxT = TWO_PI * 190.0;
+float maxT;
 final int pointsPerFrame = 240;
 
-final boolean useEpitrochoid = false;  // false -> hypotrochoid
+boolean useEpitrochoid;         // false -> hypotrochoid
 
 // Optional nested rotations (amplitude, frequency, phase)
-final float[] termAmp = {16.0, 9.0};
-final float[] termFreq = {5.0, 11.0};
-final float[] termPhase = {0.0, PI * 0.33};
+float[] termAmp = new float[2];
+float[] termFreq = new float[2];
+float[] termPhase = new float[2];
 
 float t = 0.0;
 PVector prevPoint;
 
 void setup() {
   size(1024, 1024, P2D);
-  colorMode(HSB, 360, 255, 255, 255);
-  background(8, 8, 12);
+  randomizePattern();
+  background(255);
   smooth(8);
   noFill();
   strokeWeight(0.85);
@@ -33,10 +33,7 @@ void draw() {
     float nextT = t + tStep;
     PVector nextPoint = curvePointAt(nextT);
 
-    float hue = 155.0 + 95.0 * sin(nextT * 0.23);
-    float sat = 160.0 + 70.0 * sin(nextT * 0.11 + 1.2);
-    float bri = 210.0 + 35.0 * sin(nextT * 0.07);
-    stroke(hue, sat, bri, 40);
+    stroke(0, 22);
     line(prevPoint.x, prevPoint.y, nextPoint.x, nextPoint.y);
 
     prevPoint = nextPoint;
@@ -74,4 +71,19 @@ PVector curvePointAt(float tt) {
   }
 
   return new PVector(x, y);
+}
+
+void randomizePattern() {
+  useEpitrochoid = random(1) > 0.5;
+
+  R = random(170.0, 290.0);
+  r = random(35.0, R * 0.42);
+  d = random(r * 0.45, r * 2.4);
+  maxT = TWO_PI * random(130.0, 260.0);
+
+  for (int i = 0; i < termAmp.length; i++) {
+    termAmp[i] = random(4.0, 22.0);
+    termFreq[i] = random(2.0, 15.0);
+    termPhase[i] = random(TWO_PI);
+  }
 }
